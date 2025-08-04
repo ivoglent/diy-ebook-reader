@@ -1,0 +1,11 @@
+.pio
+sdkconfig.old
+sdkconfig.*.old
+cmake-build-*
+build
+.idea
+data/config-dev.json
+sdkconfig
+dependencies.lock
+managed_components/
+embed
