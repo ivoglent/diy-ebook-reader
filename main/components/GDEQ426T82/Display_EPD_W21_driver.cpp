@@ -170,17 +170,18 @@ void delay_Xms(unsigned int Xms)
 //
 void __Epaper_ReadBusy(void)
 { 
-    // ESP_LOGI(TAG_DRV, "try to read busy...");
+    ESP_LOGI(TAG_DRV, "try to read busy...");
 
     while(1)
-    {     //=1 BUSY
+    {
+        //=1 BUSY
         if(EPD_W21_Get_BUSY == 0) 
             break;
-        else
-            vTaskDelay(3); //防止一直等待触发WDT
+        vTaskDelay(3);
+        //防止一直等待触发WDT
     }
 
-    // ESP_LOGI(TAG_DRV, "EPD busy rls...");
+    ESP_LOGI(TAG_DRV, "EPD busy rls...");
 }
 
 //////////////////////////////Display Update Function///////////////////////////////////////////////////////

@@ -15,7 +15,7 @@
 #define PIN_CS   GPIO_NUM_11
 //
 #define PIN_DC   GPIO_NUM_12
-#define PIN_RST  GPIO_NUM_3
+#define PIN_RST    GPIO_NUM_5
 #define PIN_BUSY  GPIO_NUM_10
 
 

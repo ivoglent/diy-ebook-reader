@@ -11,6 +11,7 @@
 #define LV_COLOR_DEPTH 1
 #define LV_COLOR_16_SWAP 0
 #define LV_DRAW_SW_COMPLEMENT_BASIC 1
+
 /*==================
    DISPLAY SETTINGS
  *==================*/

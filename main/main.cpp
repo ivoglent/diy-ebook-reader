@@ -8,12 +8,14 @@
 #include <driver/gpio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#define LV_CONF_INCLUDE_SIMPLE
 #include <esp_task_wdt.h>
-
+#include "lv_conf.h"
+#define LV_CONF_INCLUDE_SIMPLE
 #include "lvgl.h"
+
 #include "components/GDEQ426T82/Ap_29demo.h"
 #include "components/GDEQ426T82/Display_EPD_W21_driver.h"
+#include "nvs_flash.h"
 #define LV_COLOR_DEPTH     1
 #define IS_COLOR_EPD 1
 
@@ -22,42 +24,20 @@
 #define BUF_PIXEL_COUNT (EPD_HOR_RES * EPD_VER_RES)
 
 
-// Using SPI2 in the example
-#define LCD_HOST  SPI2_HOST
+#define SPI_HOST_USING  SPI2_HOST //HSPI_HOST
+#define SPI_PIN_MOSI    18
+#define SPI_PIN_MISO    -1
+#define SPI_PIN_SCLK    19
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////// Please update the following configuration according to your LCD spec //////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#define EXAMPLE_LCD_PIXEL_CLOCK_HZ     (20 * 1000 * 1000)
-#define EXAMPLE_PIN_NUM_SCLK           19
-#define EXAMPLE_PIN_NUM_MOSI           18
-#define EXAMPLE_PIN_NUM_MISO           (-1)   // Unused
-#define EXAMPLE_PIN_NUM_EPD_DC         12
-#define EXAMPLE_PIN_NUM_EPD_RST        5
-#define EXAMPLE_PIN_NUM_EPD_CS         11
-#define EXAMPLE_PIN_NUM_EPD_BUSY       10
+#define EPD_HOR_RES EPD_WIDTH
+#define EPD_VER_RES EPD_HEIGHT
 
-#define SPI_PIN_MOSI GPIO_NUM_18
-#define  SPI_PIN_MISO GPIO_NUM_NC
-#define  SPI_PIN_SCLK GPIO_NUM_19
+#if LV_COLOR_DEPTH != 1
+#error "LV_COLOR_DEPTH must be 1 for monochrome EPD"
+#endif
 
-// The pixel number in horizontal and vertical
-#define EXAMPLE_LCD_H_RES              480
-#define EXAMPLE_LCD_V_RES              800
-
-// Bit number used to represent command and parameter
-#define EXAMPLE_LCD_CMD_BITS           8
-#define EXAMPLE_LCD_PARAM_BITS         8
-
-#define EXAMPLE_LVGL_TICK_PERIOD_MS    2
-#define SPI_HOST_USING  SPI2_HOST
-
-
-extern "C"
-{
-   void app_main();
-}
 void delay(uint32_t millis) { vTaskDelay(millis / portTICK_PERIOD_MS); }
+
 void power_on()
 {
    gpio_config_t io_conf = {
@@ -70,8 +50,7 @@ void power_on()
    gpio_config(&io_conf);
    gpio_set_level(GPIO_DISPLAY_POWER_ON, 1);
 }
-#define EPD_HOR_RES EPD_WIDTH
-#define EPD_VER_RES EPD_HEIGHT
+
 
 static QueueHandle_t epd_flush_queue;
 
@@ -83,7 +62,6 @@ typedef struct {
 
 static lv_disp_draw_buf_t draw_buf;
 //static uint8_t *lv_buf1 = nullptr;
-static uint8_t lv_buffer_mem[BUF_PIXEL_COUNT / 8] = {0};
 
 void epd_flush_task(void *pvParameters)
 {
@@ -102,63 +80,117 @@ void epd_flush_task(void *pvParameters)
 }
 
 // LVGL flush callback: gets called when LVGL wants to update an area of the screen
-void my_lvgl_flush_cb(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p)
+void my_lvgl_flush_cb2(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p)
 {
    // For simplicity, flush the whole screen (monochrome 1bpp)
    // color_p is assumed to be a full-screen 1-bit buffer
    ESP_LOGI("FLUSH", "Area: x(%d-%d), y(%d-%d), ptr: %p", area->x1, area->x2, area->y1, area->y2, color_p);
    ESP_LOG_BUFFER_HEXDUMP("LVGL_BUF", color_p, 16, ESP_LOG_INFO);
-   EPD_WhiteScreen_ALL(reinterpret_cast<uint8_t*>(color_p));
-   lv_disp_flush_ready(disp_drv);
-   return;
+   //EPD_WhiteScreen_ALL(reinterpret_cast<uint8_t*>(color_p));
+   //lv_disp_flush_ready(disp_drv);
+   //return;
    epd_flush_req_t req;
    req.area = *area;
    req.disp_drv = disp_drv;
    // Allocate a buffer copy
-   size_t len = BUF_PIXEL_COUNT / 8;
-   req.buf = (uint8_t *)heap_caps_malloc(len, MALLOC_CAP_DMA);
-   memcpy(req.buf, (uint8_t *)color_p, len);
+   const size_t len = BUF_PIXEL_COUNT / 8;
+   req.buf = static_cast<uint8_t*>(heap_caps_malloc(len, MALLOC_CAP_SPIRAM));
+   if (req.buf == NULL)
+   {
+      ESP_LOGE("FLUSH", "Failed to allocate buffer");
+   } else
+   {
+      memcpy(req.buf, color_p, len);
+      xQueueSend(epd_flush_queue, &req, portMAX_DELAY);
+   }
 
-   xQueueSend(epd_flush_queue, &req, portMAX_DELAY);
+}
 
+void my_lvgl_flush_cb(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p)
+{
+   if ((area->x1 != 0) || (area->y1 != 0) ||
+       (area->x2 != EPD_WIDTH - 1) || (area->y2 != EPD_HEIGHT - 1))
+   {
+      ESP_LOGW("FLUSH", "Only full screen update supported");
+      lv_disp_flush_ready(disp_drv);
+      return;
+   }
+
+   uint8_t *converted_buf = (uint8_t *)heap_caps_malloc(EPD_WIDTH * EPD_HEIGHT / 8, MALLOC_CAP_DMA);
+   if (!converted_buf) {
+      ESP_LOGE("FLUSH", "Out of memory");
+      lv_disp_flush_ready(disp_drv);
+      return;
+   }
+
+   memset(converted_buf, 0xFF, EPD_WIDTH * EPD_HEIGHT / 8);
+
+   for (int y = 0; y < EPD_HEIGHT; y++) {
+      for (int x = 0; x < EPD_WIDTH; x++) {
+         int pixel_index = y * EPD_WIDTH + x;
+         int byte_index = (y * (EPD_WIDTH / 8)) + (x / 8);
+         int bit_index = 7 - (x % 8);  // MSB first in each byte
+
+         if (color_p[pixel_index].full) {
+            // WHITE = 1 → set bit
+            converted_buf[byte_index] |= (1 << bit_index);
+         } else {
+            // BLACK = 0 → clear bit
+            converted_buf[byte_index] &= ~(1 << bit_index);
+         }
+         //ESP_LOGI("PIXEL", "pixel[%d][%d] = %d", x, y, color_p[pixel_index].full);
+
+      }
+   }
+
+   EPD_WhiteScreen_ALL(converted_buf);
+   free(converted_buf);
    lv_disp_flush_ready(disp_drv);
 }
+
 
 void lvgl_epd_ssd1677_init(spi_host_device_t spi_host)
 {
    lv_init();
+   const size_t buffer_pixels = EPD_HOR_RES * EPD_VER_RES;
 
-   // Allocate buffer for LVGL
-   //lv_buf1 = static_cast<uint8_t *>(heap_caps_malloc(BUF_PIXEL_COUNT / 8, MALLOC_CAP_DMA));
-   //assert(lv_buf1);
-   //ESP_LOGI("LVGL", "Using buffer %p (%d bytes)", lv_buffer_mem, sizeof(lv_buffer_mem));
-
-   //lv_disp_draw_buf_init(&draw_buf, lv_buffer_mem, nullptr, BUF_PIXEL_COUNT);
-   auto *buf1 = static_cast<lv_color_t*>(heap_caps_malloc(EXAMPLE_LCD_H_RES * 800 * sizeof(lv_color_t), MALLOC_CAP_SPIRAM));
+   auto *buf1 = static_cast<lv_color_t*>(heap_caps_malloc(buffer_pixels * sizeof(lv_color_t), MALLOC_CAP_SPIRAM));
    assert(buf1);
-   auto *buf2 = static_cast<lv_color_t*>(heap_caps_malloc(EXAMPLE_LCD_H_RES * 800 * sizeof(lv_color_t), MALLOC_CAP_SPIRAM));
+   auto *buf2 = static_cast<lv_color_t*>(heap_caps_malloc(buffer_pixels * sizeof(lv_color_t), MALLOC_CAP_SPIRAM));
    assert(buf2);
-   // alloc bitmap buffer to draw
-   //converted_buffer_black = heap_caps_malloc(EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES / 8, MALLOC_CAP_DMA);
-   //converted_buffer_red = heap_caps_malloc(EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES / 8, MALLOC_CAP_DMA);
-   // initialize LVGL draw buffers
-   lv_disp_draw_buf_init(&draw_buf, buf1, buf2, EXAMPLE_LCD_H_RES * 800);
-
+   lv_disp_draw_buf_init(&draw_buf, buf1, buf2, buffer_pixels);
    static lv_disp_drv_t disp_drv;
    lv_disp_drv_init(&disp_drv);
    disp_drv.hor_res = EPD_HOR_RES;
    disp_drv.ver_res = EPD_VER_RES;
    disp_drv.flush_cb = my_lvgl_flush_cb;
    disp_drv.draw_buf = &draw_buf;
-   //disp_drv.color_format = LV_COLOR_FORMAT_I1; // 1-bit monochrome
 
    lv_disp_drv_register(&disp_drv);
-
    ESP_LOGI("main", "LVGL EPD SSD1677 display initialized");
 }
 
 void lvgl_handle_task(void *pvParameters)
 {
+   ESP_LOGI("main", "Drawing example!!!");
+   /*lv_style_t my_text_style;
+   lv_style_init(&my_text_style);
+   lv_style_set_text_font(&my_text_style, &lv_font_montserrat_16); // Using a built-in font
+
+
+   lv_obj_t *label = lv_label_create(lv_scr_act());
+   lv_label_set_text(label, "AAA");
+   lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+   lv_obj_add_style(label, &my_text_style, 0);*/
+   lv_obj_t *rect = lv_obj_create(lv_scr_act());
+   lv_obj_set_size(rect, 200, 200);
+   lv_obj_set_style_bg_color(rect, lv_color_black(), 0);
+   lv_obj_set_style_bg_opa(rect, LV_OPA_COVER, 0);
+   lv_obj_center(rect);
+   // Delay a bit and then force flush
+   vTaskDelay(pdMS_TO_TICKS(1000));
+   lv_refr_now(NULL);
+
    while (1)
    {
       lv_timer_handler();
@@ -167,7 +199,7 @@ void lvgl_handle_task(void *pvParameters)
    vTaskDelete(NULL);
 }
 
-void __ESP32_SPI_Bus_Init(spi_host_device_t host_id)
+void spi_display_init(spi_host_device_t host_id)
 {
    esp_err_t ret;
 
@@ -182,66 +214,40 @@ void __ESP32_SPI_Bus_Init(spi_host_device_t host_id)
 
    ret = spi_bus_initialize(host_id, &spiBusCfg, SPI_DMA_CH_AUTO);
    ESP_ERROR_CHECK(ret);
+
+   EPD_HW_Init(host_id);
+   vTaskDelay(pdMS_TO_TICKS(100));
+   EPD_W21_Init_Modes(Init_Mode_X_3);
+
 }
-#define IMG_INDEX_MAX   EPD_ARRAY
-uint8_t GUIImg2[IMG_INDEX_MAX]; //缓存界面
-uint8_t *DispImg2; //一个bit存一个pix
 
-
+extern "C"
 void app_main(void)
 {
-   // This is just in case you power your epaper VCC with a GPIO
+   esp_err_t ret = nvs_flash_init();
+   if(ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+   {
+      ESP_ERROR_CHECK(nvs_flash_erase());
+      ret = nvs_flash_init();
+   }
+   ESP_ERROR_CHECK(ret);
+   ESP_LOGI("main", "nvs init done");
    power_on();
-   //delay(100);
-   __ESP32_SPI_Bus_Init(SPI_HOST_USING);
-   // Init your EPD hardware
-   EPD_HW_Init(SPI_HOST_USING);
-   //EPD_W21_Init_GUI();
-
+   lvgl_epd_ssd1677_init(SPI_HOST_USING);
+   spi_display_init(SPI_HOST_USING);
    vTaskDelay(pdMS_TO_TICKS(1000));
-
-   DispImg2 = GUIImg2;
-
-   //------------ 使用GUI, 并支持局部刷新
-   //GUI_Init_Img(GUIImg2, EPD_X_LEN, EPD_Y_LEN, Rotate0, ColorWhite); //需要交换W和H
-   //GUI_Clear_All(ColorWhite);
-   //
-   EPD_W21_Init_GUI();
-   EPD_SetRAMValue_BaseMap(GUIImg2); //设置背景
-
-   //lvgl_epd_ssd1677_init(SPI2_HOST); // or VSPI_HOST if you're using VSPI
-
-   printf("display: We are done with the demo\n");
-   //gpio_set_level(GPIO_DISPLAY_POWER_ON, 0);
-   //esp_task_wdt_deinit();
-   //epd_flush_queue = xQueueCreate(1, sizeof(epd_flush_req_t));
-   //xTaskCreatePinnedToCore(epd_flush_task, "epd_flush_task", 4096, NULL, 5, NULL, 1); // chạy core 1
-
-   //xTaskCreatePinnedToCore(lvgl_handle_task, "lvgl_handle_task", 1024 * 50, NULL, 2, NULL, 0);
-
-   /*vTaskDelay(1000 / portTICK_PERIOD_MS);
-   lv_obj_t *label = lv_label_create(lv_scr_act());
-   lv_label_set_text(label, "Hello, LVGL!");
-   lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-
-   vTaskDelay(1000 / portTICK_PERIOD_MS);
-   lv_obj_t *rect = lv_obj_create(lv_scr_act());
-   lv_obj_set_size(rect, 100, 100);
-   lv_obj_center(rect);
-   lv_obj_set_style_bg_color(rect, lv_color_black(), 0);*/
-   vTaskDelay(1000 / portTICK_PERIOD_MS);
-   printf("display: Black\n");
-   //uint8_t color_p[EPD_HOR_RES * EPD_VER_RES / 8] = {};
-   EPD_W21_Init_Fast(); //Fast refresh initialization.
-   EPD_WhiteScreen_ALL_Fast(gImage_2); //To display one image using fast refresh.
-   EPD_Dis_PartAll(DispImg2);
+   ESP_LOGI("main", "Creating tasks...");
+   epd_flush_queue = xQueueCreate(1, sizeof(epd_flush_req_t));
+   xTaskCreatePinnedToCore(epd_flush_task, "epd_flush_task", 4096, NULL, 5, NULL, 1); // chạy core 1
+   xTaskCreatePinnedToCore(lvgl_handle_task, "lvgl_handle_task", 1024 * 50, NULL, 2, NULL, 0);
+   vTaskDelay(pdMS_TO_TICKS(1000));
+   /*//Test
+   EPD_WhiteScreen_White();
+   ESP_LOGI("display_task", "Displaying image!");
+   EPD_WhiteScreen_ALL(gImage_1); //To Display one image using full screen refresh.
+   ESP_LOGI("display_task", "Enter deep sleep!");
    EPD_DeepSleep();
-   delay(2000); //Delay for 2s.
-   vTaskDelay(5000 / portTICK_PERIOD_MS);
-   /*
+   */
 
-   printf("display: White\n");
-   memset(color_p, 0xFF, BUF_PIXEL_COUNT / 8);
-   EPD_WhiteScreen_ALL(color_p);*/
-
+   ESP_LOGI("main", "Done!");
 }
