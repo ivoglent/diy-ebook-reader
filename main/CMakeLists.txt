@@ -9,8 +9,8 @@ idf_component_register(
         SRCS ${app_sources}
         INCLUDE_DIRS "."
         REQUIRES
-            Adafruit-GFX
-            CalEPD
+        esp_lvgl_port
+        lvgl__lvgl
 )
 
 spiffs_create_partition_image(spiffs ../data)
