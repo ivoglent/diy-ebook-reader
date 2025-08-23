@@ -13,6 +13,7 @@ idf_component_register(
             nvs_flash
             esp_lvgl_port
             lvgl__lvgl
+            spiffs
 )
 
-spiffs_create_partition_image(spiffs ../data)
+spiffs_create_partition_image(spiffs ../data FLASH_IN_PROJECT)
