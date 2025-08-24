@@ -21,8 +21,11 @@
 
 #include "esp_spiffs.h"
 #include "components/controller/Button.h"
+#include "components/controller/Menu.h"
 #include "components/display/Display.h"
 #include "components/sdcard/SDCard.h"
+#include "components/system/Registry.h"
+#include "components/system/EventBus.h"
 
 #define TAG "MAIN"
 Display* display;
@@ -78,6 +81,21 @@ static void lvgl_demo_task(void *pv) {
     vTaskDelete(nullptr);
 }
 
+template <typename T, typename ...Args>
+void register_service(Args&&... all) {
+    getRegistryInstance().create<T>(std::forward<Args>(all)...);
+}
+
+void setup() {
+    for (const auto service: getRegistryInstance().getServices()) {
+        service->setup();
+    }
+
+    for (const auto service: getRegistryInstance().getServices()) {
+        service->subscribe();
+    }
+}
+
 
 extern "C" void app_main(void) {
     // NVS
@@ -89,15 +107,27 @@ extern "C" void app_main(void) {
     ESP_ERROR_CHECK(ret);
     ESP_LOGI(TAG, "NVS init done");
 
-    auto* sd = new SDCard(static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MOSI), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MISO), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CLK), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CS));
-    sd->setup();
+    event_bus_init();
+    ESP_LOGI(TAG, "Init event bus done");
+
+
+    //auto* sd = new SDCard(static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MOSI), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MISO), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CLK), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CS));
+    //sd->setup();
+    register_service<SDCard>(static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MOSI), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MISO), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CLK), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CS));
 
     mount_spiffs();
-    display = new Display();
-    display->setup();
+    register_service<Display>();
 
-    const auto* button = new Button(CONFIG_BUTTON_PIN_UP, CONFIG_BUTTON_PIN_DOWN, CONFIG_BUTTON_PIN_SELECT);
-    button->setup();
+    //display = new Display();
+    //display->setup();
+
+    //const auto* button = new Button(CONFIG_BUTTON_PIN_UP, CONFIG_BUTTON_PIN_DOWN, CONFIG_BUTTON_PIN_SELECT);
+   //button->setup();
+    register_service<Button>(CONFIG_BUTTON_PIN_UP, CONFIG_BUTTON_PIN_DOWN, CONFIG_BUTTON_PIN_SELECT);
+
+    register_service<Menu>();
+
+    setup();
 
     //xTaskCreatePinnedToCore(lvgl_demo_task, "lvgl_demo_task", 1024 * 6, NULL, 3, NULL, 1);
     ESP_LOGI(TAG, "Setup complete");

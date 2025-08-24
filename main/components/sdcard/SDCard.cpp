@@ -11,7 +11,7 @@
 
 static char *SDCARD_TAG= "SDCard";
 
-SDCard::SDCard(const gpio_num_t& mosi, const gpio_num_t& miso, const gpio_num_t& clk, const gpio_num_t& cs): _miso(miso), _mosi(mosi), _clk(clk), _cs(cs)
+SDCard::SDCard(Registry& registry, const gpio_num_t& mosi, const gpio_num_t& miso, const gpio_num_t& clk, const gpio_num_t& cs): BaseService(registry), _miso(miso), _mosi(mosi), _clk(clk), _cs(cs)
 {
 }
 

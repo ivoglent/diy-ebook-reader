@@ -22,6 +22,8 @@
 //#include "components/fonts/roboto/roboto_20.c"
 #include <string>
 
+#include "service.h"
+#include "components/system/Registry.h"
 #include "fonts/roboto/roboto_24.c"
 //LV_FONT_DECLARE(roboto_18)
 LV_FONT_DECLARE(roboto_24)
@@ -68,11 +70,11 @@ typedef struct {
     uint32_t biClrImportant;
 } __attribute__((packed)) BITMAPINFOHEADER;
 
-class Display {
+class Display: public BaseService<Display, SERVICE_DISPLAY> {
 private:
 
 public:
-    Display();
+    Display(Registry& registry);
     ~Display();
     void setup();
     void display(const std::string& path);

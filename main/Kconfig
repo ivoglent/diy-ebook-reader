@@ -46,6 +46,6 @@ menu "Application Configurations"
             default 8
         config BUTTON_PIN_SELECT
             int "Button SELECT pin"
-            default 8
+            default 7
     endmenu
 endmenu

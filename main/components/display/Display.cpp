@@ -236,7 +236,7 @@ static void lvgl_handle_task(void *pv) {
 }
 
 
-Display::Display() = default;
+Display::Display(Registry& registry): BaseService(registry) {};
 
 Display::~Display() = default;
 
