@@ -1,0 +1,51 @@
+menu "Application Configurations"
+    menu "SDCard pins"
+        config SDCARD_SPI_MOSI
+            int "SDCard MOSI pin"
+            default -1
+        config SDCARD_SPI_MISO
+            int "SDCard MISO pin"
+            default -1
+        config SDCARD_SPI_CLK
+            int "SDCard CLK pin"
+            default -1
+        config SDCARD_SPI_CS
+            int "SDCard CS pin"
+            default -1
+    endmenu
+
+    menu "E-Ink display pins"
+        config EINK_SPI_MOSI
+            int "EINK MOSI pin"
+            default 18
+        config EINK_SPI_MISO
+            int "EINK MISO pin"
+            default -1
+        config EINK_SPI_CLK
+            int "EINK CLK pin"
+            default 19
+        config EINK_SPI_CS
+            int "EINK CS pin"
+            default 11
+        config EINK_SPI_DC
+            int "EINK DC pin"
+            default 12
+        config EINK_SPI_RST
+            int "EINK RST pin"
+            default 5
+        config EINK_SPI_BUSY
+            int "EINK BUSY pin"
+            default 10
+    endmenu
+    menu "Button pins"
+        config BUTTON_PIN_UP
+            int "Button UP pin"
+            default -1
+        config BUTTON_PIN_DOWN
+            int "Button DOWN pin"
+            default -1
+        config BUTTON_PIN_SELECT
+            int "Button SELECT pin"
+            default -1
+    endmenu
+endmenu

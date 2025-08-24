@@ -12,17 +12,13 @@
 #include <sstream>
 
 #include <esp_log.h>
-#include <esp_check.h>
-#include <driver/gpio.h>
 #include <driver/spi_master.h>
 #include <esp_timer.h>
-#include <esp_task_wdt.h>
 #include <nvs_flash.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include <esp_lcd_types.h>
 #include "esp_spiffs.h"
 #include "components/display/Display.h"
 
