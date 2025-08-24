@@ -9,10 +9,10 @@
 
 #include "components/display/Display.h"
 
+static char *SDCARD_TAG= "SDCard";
 
-SDCard::SDCard(const gpio_num_t& mosi, const gpio_num_t& miso, const gpio_num_t& clk, const gpio_num_t& cs): _mosi(mosi), _miso(miso), _clk(clk), _cs(cs)
+SDCard::SDCard(const gpio_num_t& mosi, const gpio_num_t& miso, const gpio_num_t& clk, const gpio_num_t& cs): _miso(miso), _mosi(mosi), _clk(clk), _cs(cs)
 {
-    TAG = "SDCard";
 }
 
 void SDCard::setup()
@@ -24,10 +24,14 @@ void SDCard::setup()
         .allocation_unit_size = 16 * 1024
     };
     sdmmc_card_t *card;
-    const char mount_point[] = MOUNT_POINT;
-    ESP_LOGI(TAG, "Initializing SD card");
-    ESP_LOGI(TAG, "Using SPI peripheral");
+    constexpr char mount_point[] = MOUNT_POINT;
+    ESP_LOGI(SDCARD_TAG, "Initializing SD card");
+    ESP_LOGI(SDCARD_TAG, "Using SPI peripheral");
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    host.slot = SD_CARD_SPI_HOST;
+    const auto host_id = static_cast<spi_host_device_t>(host.slot);
+
+
 #if CONFIG_SD_PWR_CTRL_LDO_INTERNAL_IO
     sd_pwr_ctrl_ldo_config_t ldo_config = {
         .ldo_chan_id = CONFIG_SD_PWR_CTRL_LDO_IO_ID,
@@ -36,7 +40,7 @@ void SDCard::setup()
 
     ret = sd_pwr_ctrl_new_on_chip_ldo(&ldo_config, &pwr_ctrl_handle);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to create a new on-chip LDO power control driver");
+        ESP_LOGE(SDCARD_TAG, "Failed to create a new on-chip LDO power control driver");
         return;
     }
     host.pwr_ctrl_handle = pwr_ctrl_handle;
@@ -51,27 +55,27 @@ void SDCard::setup()
         .max_transfer_sz = 4000,
     };
 
-    ret = spi_bus_initialize(SD_CARD_SPI_HOST, &bus_cfg, SDSPI_DEFAULT_DMA);
+    ret = spi_bus_initialize(host_id, &bus_cfg, SPI_DMA_CH_AUTO);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize bus.");
+        ESP_LOGE(SDCARD_TAG, "Failed to initialize bus.");
         return;
     }
 
     // This initializes the slot without card detect (CD) and write protect (WP) signals.
     // Modify slot_config.gpio_cd and slot_config.gpio_wp if your board has these signals.
     sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
-    slot_config.gpio_cs = _clk;
-    slot_config.host_id = SD_CARD_SPI_HOST;
+    slot_config.gpio_cs = _cs;
+    slot_config.host_id = host_id;
 
-    ESP_LOGI(TAG, "Mounting filesystem");
+    ESP_LOGI(SDCARD_TAG, "Mounting filesystem");
     ret = esp_vfs_fat_sdspi_mount(mount_point, &host, &slot_config, &mount_config, &card);
 
     if (ret != ESP_OK) {
         if (ret == ESP_FAIL) {
-            ESP_LOGE(TAG, "Failed to mount filesystem. "
+            ESP_LOGE(SDCARD_TAG, "Failed to mount filesystem. "
                      "If you want the card to be formatted, set the CONFIG_EXAMPLE_FORMAT_IF_MOUNT_FAILED menuconfig option.");
         } else {
-            ESP_LOGE(TAG, "Failed to initialize the card (%s). "
+            ESP_LOGE(SDCARD_TAG, "Failed to initialize the card (%s). "
                      "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
 #ifdef CONFIG_EXAMPLE_DEBUG_PIN_CONNECTIONS
             check_sd_card_pins(&config, pin_count);
@@ -79,17 +83,17 @@ void SDCard::setup()
         }
         return;
     }
-    ESP_LOGI(TAG, "Filesystem mounted");
+    ESP_LOGI(SDCARD_TAG, "Filesystem mounted");
 
     sdmmc_card_print_info(stdout, card);
 }
 
 esp_err_t SDCard::readBitmapImage(const char* path, uint8_t* buffer, size_t width, size_t height)
 {
-    ESP_LOGI(TAG, "Reading file %s", path);
+    ESP_LOGI(SDCARD_TAG, "Reading file %s", path);
     FILE *f = fopen(path, "rb");
     if (!f) {
-        ESP_LOGE(TAG, "Failed to open BMP: %s", path);
+        ESP_LOGE(SDCARD_TAG, "Failed to open BMP: %s", path);
         return ESP_FAIL;
     }
 
@@ -99,7 +103,7 @@ esp_err_t SDCard::readBitmapImage(const char* path, uint8_t* buffer, size_t widt
     fread(&info_header, sizeof(info_header), 1, f);
 
     if (file_header.bfType != 0x4D42 || info_header.biBitCount != 1) {
-        ESP_LOGE(TAG, "Not a valid 1-bit BMP");
+        ESP_LOGE(SDCARD_TAG, "Not a valid 1-bit BMP");
         fclose(f);
         return ESP_FAIL;
     }

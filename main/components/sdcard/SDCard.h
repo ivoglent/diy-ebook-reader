@@ -7,12 +7,11 @@
 #include <esp_vfs_fat.h>
 
 #define MOUNT_POINT "/sdcard"
-#define SD_CARD_SPI_HOST SPI1_HOST
+#define SD_CARD_SPI_HOST SPI3_HOST
 
 class SDCard {
 private:
   gpio_num_t _miso, _mosi, _clk, _cs;
-  static const char *TAG;
 public:
   SDCard(const gpio_num_t& mosi, const gpio_num_t& miso, const gpio_num_t& clk, const gpio_num_t& cs);
   ~SDCard() = default;

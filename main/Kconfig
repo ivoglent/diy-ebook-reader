@@ -2,16 +2,16 @@ menu "Application Configurations"
     menu "SDCard pins"
         config SDCARD_SPI_MOSI
             int "SDCard MOSI pin"
-            default -1
+            default 13
         config SDCARD_SPI_MISO
             int "SDCard MISO pin"
-            default -1
+            default 1
         config SDCARD_SPI_CLK
             int "SDCard CLK pin"
-            default -1
+            default 14
         config SDCARD_SPI_CS
             int "SDCard CS pin"
-            default -1
+            default 15
     endmenu
 
     menu "E-Ink display pins"
@@ -40,12 +40,12 @@ menu "Application Configurations"
     menu "Button pins"
         config BUTTON_PIN_UP
             int "Button UP pin"
-            default -1
+            default 9
         config BUTTON_PIN_DOWN
             int "Button DOWN pin"
-            default -1
+            default 8
         config BUTTON_PIN_SELECT
             int "Button SELECT pin"
-            default -1
+            default 8
     endmenu
 endmenu

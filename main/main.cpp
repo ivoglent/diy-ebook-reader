@@ -20,7 +20,9 @@
 #include "freertos/task.h"
 
 #include "esp_spiffs.h"
+#include "components/controller/Button.h"
 #include "components/display/Display.h"
+#include "components/sdcard/SDCard.h"
 
 #define TAG "MAIN"
 Display* display;
@@ -86,9 +88,17 @@ extern "C" void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
     ESP_LOGI(TAG, "NVS init done");
+
+    auto* sd = new SDCard(static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MOSI), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MISO), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CLK), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CS));
+    sd->setup();
+
     mount_spiffs();
     display = new Display();
     display->setup();
-    xTaskCreatePinnedToCore(lvgl_demo_task, "lvgl_demo_task", 1024 * 6, NULL, 3, NULL, 1);
+
+    const auto* button = new Button(CONFIG_BUTTON_PIN_UP, CONFIG_BUTTON_PIN_DOWN, CONFIG_BUTTON_PIN_SELECT);
+    button->setup();
+
+    //xTaskCreatePinnedToCore(lvgl_demo_task, "lvgl_demo_task", 1024 * 6, NULL, 3, NULL, 1);
     ESP_LOGI(TAG, "Setup complete");
 }

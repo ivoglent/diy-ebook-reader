@@ -15,6 +15,7 @@ idf_component_register(
             lvgl__lvgl
             spiffs
             fatfs
+            button
 )
 
 spiffs_create_partition_image(spiffs ../data FLASH_IN_PROJECT)
