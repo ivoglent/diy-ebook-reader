@@ -11,6 +11,7 @@
 
 #define MOUNT_POINT "/sdcard"
 #define SD_CARD_SPI_HOST SPI3_HOST
+#define SD_TAG "SDCard"
 
 class SDCard: public BaseService<SDCard, SERVICE_SD_CARD> {
 private:
@@ -21,3 +22,6 @@ public:
   void setup();
   static esp_err_t readBitmapImage(const char* path, uint8_t* buffer, size_t width, size_t height);
 };
+
+std::vector<std::string> list_directories(const char *path);
+char *read_string_file(const char *path);

@@ -23,9 +23,11 @@
 #include "components/controller/Button.h"
 #include "components/controller/Menu.h"
 #include "components/display/Display.h"
+#include "components/display/screen/ScreenManager.h"
 #include "components/sdcard/SDCard.h"
 #include "components/system/Registry.h"
 #include "components/system/EventBus.h"
+#include "components/system/Global.h"
 
 #define TAG "MAIN"
 Display* display;
@@ -49,37 +51,6 @@ void mount_spiffs() {
     ESP_LOGI("SPIFFS", "Partition size: total: %d, used: %d", total, used);
 }
 
-
-static void lvgl_demo_task(void *pv) {
-    /*ESP_LOGI(TAG, "Drawing example!");
-
-   // Create a label object
-   lv_obj_t *label = lv_label_create(lv_scr_act());
-
-   // Set the text (UTF-8 supported)
-   lv_label_set_text(label, "Cộng hòa xã hội chủ nghĩa Việt Nam!");
-
-   // Optionally, set alignment and style
-   lv_obj_set_style_text_color(label, lv_color_black(), 0);
-   lv_obj_set_style_text_font(label, &roboto_24, 0);  // choose font size
-   lv_obj_center(label);
-
-   // Force an immediate refresh once objects created
-   delay_ms(500);
-   lv_refr_now(NULL);*/
-    int i = 1;
-    while (i < 10) {
-        std::stringstream ss;
-        ss << "/spiffs/pages/page_00";
-        ss << i;
-        ss << ".bmp";
-        display->display(ss.str());
-        vTaskDelay(pdMS_TO_TICKS(3000));
-        i++;
-        if (i > 9) i =1;
-    }
-    vTaskDelete(nullptr);
-}
 
 template <typename T, typename ...Args>
 void register_service(Args&&... all) {
@@ -110,25 +81,13 @@ extern "C" void app_main(void) {
     event_bus_init();
     ESP_LOGI(TAG, "Init event bus done");
 
-
-    //auto* sd = new SDCard(static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MOSI), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MISO), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CLK), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CS));
-    //sd->setup();
     register_service<SDCard>(static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MOSI), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MISO), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CLK), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CS));
 
     mount_spiffs();
     register_service<Display>();
-
-    //display = new Display();
-    //display->setup();
-
-    //const auto* button = new Button(CONFIG_BUTTON_PIN_UP, CONFIG_BUTTON_PIN_DOWN, CONFIG_BUTTON_PIN_SELECT);
-   //button->setup();
     register_service<Button>(CONFIG_BUTTON_PIN_UP, CONFIG_BUTTON_PIN_DOWN, CONFIG_BUTTON_PIN_SELECT);
 
-    register_service<Menu>();
-
+    register_service<ScreenManager>();
     setup();
-
-    //xTaskCreatePinnedToCore(lvgl_demo_task, "lvgl_demo_task", 1024 * 6, NULL, 3, NULL, 1);
     ESP_LOGI(TAG, "Setup complete");
 }

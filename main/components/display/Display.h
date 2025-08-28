@@ -80,3 +80,6 @@ public:
     void display(const std::string& path);
 };
 
+void display_partially(const lv_area_t *area, lv_color_t *lv_buf);
+lv_disp_draw_buf_t display_get_draw_buff();
+void display_image_from_path(const std::string& path);

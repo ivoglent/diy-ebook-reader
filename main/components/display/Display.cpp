@@ -108,13 +108,96 @@ static void lvgl_start_tick_timer(void) {
     ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, 5000));
 }
 
+void display_partially(const lv_area_t *area, lv_color_t *lv_buf)
+{
+    ESP_LOGI(TAG, "Displaying partially");
+    int width  = area->x2 - area->x1 + 1;
+    int height = area->y2 - area->y1 + 1;
+
+    // Each row in bytes for 1bpp
+    int row_bytes = (width + 7) / 8;
+    const size_t buf_size = row_bytes * height;
+    auto *epd_buf = static_cast<uint8_t*>(heap_caps_malloc(buf_size, MALLOC_CAP_DMA));
+
+    if (!epd_buf) {
+        ESP_LOGE(TAG, "Partial buf alloc fail (%d bytes)", (int)buf_size);
+        return;
+    }
+    memset(epd_buf, 0xFF, buf_size); // White background
+
+    // Convert LVGL pixels (0=black, 1=white) → packed 1bpp
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int src_index = y * width + x; // pixel in LVGL buffer
+            if (lv_buf[src_index].full == 0) { // black pixel
+                int byte_index = y * row_bytes + (x >> 3);
+                int bit_index  = 7 - (x & 7);
+                epd_buf[byte_index] &= ~(1 << bit_index);
+            }
+        }
+    }
+
+    // Push to your driver
+    EPD_Dis_Part_RAM(area->x1, area->y1, epd_buf, width, height);
+    free(epd_buf);
+}
+
+lv_disp_draw_buf_t display_get_draw_buff()
+{
+    return draw_buf;
+}
+
+void display_image_from_path(const std::string& path)
+{
+    auto self = getRegistryInstance().getService<Display>();
+    self->display(path);
+}
+
+static void epd_lvgl_flush_partial_cb(lv_disp_drv_t *disp_drv,
+                                      const lv_area_t *area,
+                                      lv_color_t *color_p) {
+    int width  = area->x2 - area->x1 + 1;
+    int height = area->y2 - area->y1 + 1;
+
+    // Each row in bytes for 1bpp
+    int row_bytes = (width + 7) / 8;
+    const size_t buf_size = row_bytes * height;
+    auto *epd_buf = static_cast<uint8_t*>(heap_caps_malloc(buf_size, MALLOC_CAP_DMA));
+
+    if (!epd_buf) {
+        ESP_LOGE(TAG, "Partial buf alloc fail (%d bytes)", (int)buf_size);
+        lv_disp_flush_ready(disp_drv);
+        return;
+    }
+    memset(epd_buf, 0xFF, buf_size); // White background
+
+    // Convert LVGL pixels (0=black, 1=white) → packed 1bpp
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int src_index = y * width + x; // pixel in LVGL buffer
+            if (color_p[src_index].full == 0) { // black pixel
+                int byte_index = y * row_bytes + (x >> 3);
+                int bit_index  = 7 - (x & 7);
+                epd_buf[byte_index] &= ~(1 << bit_index);
+            }
+        }
+    }
+
+    // Push to your driver
+    EPD_Dis_Part_RAM(area->x1, area->y1, epd_buf, width, height);
+
+    free(epd_buf);
+    lv_disp_flush_ready(disp_drv);
+}
+
 // =============== LVGL flush (full screen only) ===============
 static void epd_lvgl_flush_cb(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p) {
     // Only support full-screen refresh for this EPD driver
     if (area->x1 != 0 || area->y1 != 0 || area->x2 != (EPD_HOR_RES - 1) || area->y2 != (EPD_VER_RES - 1)) {
-        ESP_LOGW(TAG, "Partial flush requested (%d,%d)-(%d,%d) not supported, skipping.",
-                 area->x1, area->y1, area->x2, area->y2);
-        lv_disp_flush_ready(disp_drv);
+        //ESP_LOGW(TAG, "Partial flush requested (%d,%d)-(%d,%d) not supported, skipping.",
+        //         area->x1, area->y1, area->x2, area->y2);
+        //lv_disp_flush_ready(disp_drv);
+        epd_lvgl_flush_partial_cb(disp_drv, area, color_p);
         return;
     }
 
@@ -122,7 +205,7 @@ static void epd_lvgl_flush_cb(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv
     const int height = EPD_VER_RES;
 
     const size_t bytes_epd = (width * height) / 8; // 1 bit per pixel in EPD memory
-    uint8_t *epd_buf = (uint8_t *)heap_caps_malloc(bytes_epd, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    uint8_t *epd_buf = static_cast<uint8_t*>(heap_caps_malloc(bytes_epd, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
     if (!epd_buf) {
         ESP_LOGE(TAG, "Failed to allocate %u bytes for EPD buffer", (unsigned)bytes_epd);
         lv_disp_flush_ready(disp_drv);

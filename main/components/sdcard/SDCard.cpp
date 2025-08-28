@@ -6,10 +6,12 @@
 
 #include <cstring>
 #include <sdmmc_cmd.h>
+#include <sys/dirent.h>
+#include <sys/stat.h>
 
 #include "components/display/Display.h"
 
-static char *SDCARD_TAG= "SDCard";
+static char *SDCARD_SD_TAG= "SDCard";
 
 SDCard::SDCard(Registry& registry, const gpio_num_t& mosi, const gpio_num_t& miso, const gpio_num_t& clk, const gpio_num_t& cs): BaseService(registry), _miso(miso), _mosi(mosi), _clk(clk), _cs(cs)
 {
@@ -25,8 +27,8 @@ void SDCard::setup()
     };
     sdmmc_card_t *card;
     constexpr char mount_point[] = MOUNT_POINT;
-    ESP_LOGI(SDCARD_TAG, "Initializing SD card");
-    ESP_LOGI(SDCARD_TAG, "Using SPI peripheral");
+    ESP_LOGI(SDCARD_SD_TAG, "Initializing SD card");
+    ESP_LOGI(SDCARD_SD_TAG, "Using SPI peripheral");
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
     host.slot = SD_CARD_SPI_HOST;
     const auto host_id = static_cast<spi_host_device_t>(host.slot);
@@ -40,7 +42,7 @@ void SDCard::setup()
 
     ret = sd_pwr_ctrl_new_on_chip_ldo(&ldo_config, &pwr_ctrl_handle);
     if (ret != ESP_OK) {
-        ESP_LOGE(SDCARD_TAG, "Failed to create a new on-chip LDO power control driver");
+        ESP_LOGE(SDCARD_SD_TAG, "Failed to create a new on-chip LDO power control driver");
         return;
     }
     host.pwr_ctrl_handle = pwr_ctrl_handle;
@@ -57,7 +59,7 @@ void SDCard::setup()
 
     ret = spi_bus_initialize(host_id, &bus_cfg, SPI_DMA_CH_AUTO);
     if (ret != ESP_OK) {
-        ESP_LOGE(SDCARD_TAG, "Failed to initialize bus.");
+        ESP_LOGE(SDCARD_SD_TAG, "Failed to initialize bus.");
         return;
     }
 
@@ -67,15 +69,15 @@ void SDCard::setup()
     slot_config.gpio_cs = _cs;
     slot_config.host_id = host_id;
 
-    ESP_LOGI(SDCARD_TAG, "Mounting filesystem");
+    ESP_LOGI(SDCARD_SD_TAG, "Mounting filesystem");
     ret = esp_vfs_fat_sdspi_mount(mount_point, &host, &slot_config, &mount_config, &card);
 
     if (ret != ESP_OK) {
         if (ret == ESP_FAIL) {
-            ESP_LOGE(SDCARD_TAG, "Failed to mount filesystem. "
+            ESP_LOGE(SDCARD_SD_TAG, "Failed to mount filesystem. "
                      "If you want the card to be formatted, set the CONFIG_EXAMPLE_FORMAT_IF_MOUNT_FAILED menuconfig option.");
         } else {
-            ESP_LOGE(SDCARD_TAG, "Failed to initialize the card (%s). "
+            ESP_LOGE(SDCARD_SD_TAG, "Failed to initialize the card (%s). "
                      "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
 #ifdef CONFIG_EXAMPLE_DEBUG_PIN_CONNECTIONS
             check_sd_card_pins(&config, pin_count);
@@ -83,17 +85,17 @@ void SDCard::setup()
         }
         return;
     }
-    ESP_LOGI(SDCARD_TAG, "Filesystem mounted");
+    ESP_LOGI(SDCARD_SD_TAG, "Filesystem mounted");
 
     sdmmc_card_print_info(stdout, card);
 }
 
 esp_err_t SDCard::readBitmapImage(const char* path, uint8_t* buffer, size_t width, size_t height)
 {
-    ESP_LOGI(SDCARD_TAG, "Reading file %s", path);
+    ESP_LOGI(SDCARD_SD_TAG, "Reading file %s", path);
     FILE *f = fopen(path, "rb");
     if (!f) {
-        ESP_LOGE(SDCARD_TAG, "Failed to open BMP: %s", path);
+        ESP_LOGE(SDCARD_SD_TAG, "Failed to open BMP: %s", path);
         return ESP_FAIL;
     }
 
@@ -103,7 +105,7 @@ esp_err_t SDCard::readBitmapImage(const char* path, uint8_t* buffer, size_t widt
     fread(&info_header, sizeof(info_header), 1, f);
 
     if (file_header.bfType != 0x4D42 || info_header.biBitCount != 1) {
-        ESP_LOGE(SDCARD_TAG, "Not a valid 1-bit BMP");
+        ESP_LOGE(SDCARD_SD_TAG, "Not a valid 1-bit BMP");
         fclose(f);
         return ESP_FAIL;
     }
@@ -133,4 +135,62 @@ esp_err_t SDCard::readBitmapImage(const char* path, uint8_t* buffer, size_t widt
     free(row);
     fclose(f);
     return ESP_OK;
+}
+
+std::vector<std::string> list_directories(const char* path)
+{
+    std::vector<std::string> dirs;
+    DIR *dir = opendir(path);
+    if (!dir) {
+        printf("Failed to open dir: %s\n", path);
+        return dirs;
+    }
+
+    dirent *entry;
+    struct stat st{};
+
+    while ((entry = readdir(dir)) != NULL) {
+        char fullpath[512];
+        // Skip . and ..
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
+        if (stat(fullpath, &st) == 0 && S_ISDIR(st.st_mode)) {
+            printf("Directory: %s\n", entry->d_name);
+            dirs.emplace_back(entry->d_name);
+        }
+    }
+
+    closedir(dir);
+    return dirs;
+}
+
+
+char *read_string_file(const char *path) {
+    FILE *f = fopen(path, "r");
+    if (f == nullptr) {
+        ESP_LOGE(SD_TAG, "Failed to open file: %s", path);
+        return nullptr;
+    }
+
+    // seek to end to get size
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    rewind(f);
+
+    char *buffer = (char *)malloc(size + 1);
+    if (buffer == nullptr) {
+        ESP_LOGE(SD_TAG, "Failed to malloc %ld bytes", size + 1);
+        fclose(f);
+        return nullptr;
+    }
+
+    size_t read_size = fread(buffer, 1, size, f);
+    buffer[read_size] = '\0';  // null terminate
+
+    fclose(f);
+
+    ESP_LOGI(SD_TAG, "Read file %s (%ld bytes)", path, size);
+    return buffer;
 }

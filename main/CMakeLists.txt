@@ -17,6 +17,7 @@ idf_component_register(
             fatfs
             button
             esp_event
+            json
 )
 
 spiffs_create_partition_image(spiffs ../data FLASH_IN_PROJECT)
