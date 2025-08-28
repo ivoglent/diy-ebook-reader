@@ -158,6 +158,7 @@ static void epd_lvgl_flush_partial_cb(lv_disp_drv_t *disp_drv,
                                       lv_color_t *color_p) {
     int width  = area->x2 - area->x1 + 1;
     int height = area->y2 - area->y1 + 1;
+    ESP_LOGI(TAG, "Flushing partial w=%d h=%d", width, height);
 
     // Each row in bytes for 1bpp
     int row_bytes = (width + 7) / 8;
@@ -200,7 +201,7 @@ static void epd_lvgl_flush_cb(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv
         epd_lvgl_flush_partial_cb(disp_drv, area, color_p);
         return;
     }
-
+    ESP_LOGI(TAG, "Flushing full screen");
     const int width = EPD_HOR_RES;
     const int height = EPD_VER_RES;
 

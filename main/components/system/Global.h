@@ -4,6 +4,9 @@
 
 #pragma once
 #include "dto/bookinfo.h"
+
+#define MAX_BOOK_NAME_LEN 128
+
 static std::string BOOK_BASE_PATH = "/sdcard/books/";
 static bookinfo_t* currentBook;
 

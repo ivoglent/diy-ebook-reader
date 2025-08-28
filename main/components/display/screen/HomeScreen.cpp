@@ -17,7 +17,7 @@ static int selected_index = -1;
 static int current_page = 0;
 static int total_items = 0;
 static const char **all_titles = nullptr;
-
+static std::vector<std::string> book_titles;
 
 
 static void refresh_item_area(const lv_obj_t *obj) {
@@ -31,15 +31,16 @@ static void refresh_item_area(const lv_obj_t *obj) {
     display_partially(&coords, buf);
 }
 
-static void create_book_grid(lv_obj_t *parent, char *titles[], int count) {
-    const int page_items = (count < ITEMS_PER_PAGE) ? count : ITEMS_PER_PAGE;
+static void create_book_grid(lv_obj_t *parent, const std::vector<std::string>& titles, int count) {
+    int page_items = (count < ITEMS_PER_PAGE) ? count : ITEMS_PER_PAGE;
+    if (page_items > titles.size()) page_items = titles.size();
 
     for (int i = 0; i < page_items; i++) {
-        const int col = i % PAGE_COLS;
-        const int row = i / PAGE_COLS;
+        int col = i % PAGE_COLS;
+        int row = i / PAGE_COLS;
 
-        const int x = ITEM_MARGIN + col * (ITEM_W + ITEM_MARGIN);
-        const int y = ITEM_MARGIN + row * (ITEM_H + ITEM_MARGIN);
+        int x = ITEM_MARGIN + col * (ITEM_W + ITEM_MARGIN);
+        int y = ITEM_MARGIN + row * (ITEM_H + ITEM_MARGIN);
 
         // Box
         book_items[i] = lv_obj_create(parent);
@@ -52,10 +53,11 @@ static void create_book_grid(lv_obj_t *parent, char *titles[], int count) {
 
         // Title
         book_labels[i] = lv_label_create(book_items[i]);
-        lv_label_set_text(book_labels[i], titles[i]);
+        lv_label_set_text(book_labels[i], titles[i].c_str());
         lv_obj_center(book_labels[i]);
     }
 }
+
 
 static void set_selected(const int new_index) {
     if (selected_index >= 0 && book_items[selected_index]) {
@@ -125,7 +127,7 @@ static void handleHomeMenu(const ButtonEvent& event, Screen* screen)
     home->onButtonEvent(event);
 }
 
-int HomeScreen::_loadDataFromSdCard(char** items)
+int HomeScreen::_loadDataFromSdCard(std::vector<std::string> items)
 {
     auto dirs = list_directories("/sdcard/books");
     uint size = MAX_BOOK_ITEMS;
@@ -135,7 +137,7 @@ int HomeScreen::_loadDataFromSdCard(char** items)
     }
     for (int i = 0; i < size; i++)
     {
-        strcpy(items[i] , dirs[i].c_str());
+        items.emplace_back(dirs[i].c_str());
     }
     return dirs.size();
 }
@@ -146,11 +148,10 @@ HomeScreen::HomeScreen(ScreenManager* manager): Screen(manager)
 
 void HomeScreen::init()
 {
-    char* items[MAX_BOOK_ITEMS];
-    int total = _loadDataFromSdCard(items);
+    int total = _loadDataFromSdCard(book_titles);
     _data = lv_obj_create(nullptr);
     lv_obj_set_style_bg_color(_data, lv_color_white(), 0);
-    create_book_grid(_data, items, total);
+    create_book_grid(_data, book_titles, total);
 }
 
 void HomeScreen::refresh()

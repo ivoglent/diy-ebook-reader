@@ -136,36 +136,36 @@ esp_err_t SDCard::readBitmapImage(const char* path, uint8_t* buffer, size_t widt
     fclose(f);
     return ESP_OK;
 }
-
 std::vector<std::string> list_directories(const char* path)
 {
     std::vector<std::string> dirs;
     DIR *dir = opendir(path);
     if (!dir) {
-        printf("Failed to open dir: %s\n", path);
+        ESP_LOGE(SDCARD_SD_TAG, "Failed to open dir: %s", path);
         return dirs;
     }
+
+    ESP_LOGI(SDCARD_SD_TAG, "Scanning dir: %s", path);
 
     dirent *entry;
     struct stat st{};
 
     while ((entry = readdir(dir)) != NULL) {
-        char fullpath[512];
-        // Skip . and ..
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
-        if (stat(fullpath, &st) == 0 && S_ISDIR(st.st_mode)) {
-            printf("Directory: %s\n", entry->d_name);
-            dirs.emplace_back(entry->d_name);
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+
+        std::string fullpath = std::string(path) + "/" + entry->d_name;
+
+        if (stat(fullpath.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+            ESP_LOGI(SDCARD_SD_TAG, "Directory: %s", entry->d_name);
+            dirs.push_back(std::string(entry->d_name));
         }
     }
 
+
     closedir(dir);
+    ESP_LOGI(SDCARD_SD_TAG, "Found %d directories", dirs.size());
     return dirs;
 }
-
 
 char *read_string_file(const char *path) {
     FILE *f = fopen(path, "r");

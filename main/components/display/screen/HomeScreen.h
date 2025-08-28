@@ -20,7 +20,7 @@
 
 class HomeScreen final : public Screen {
 private:
-    int _loadDataFromSdCard(char** items);
+    int _loadDataFromSdCard(std::vector<std::string> items);
     void _selectedBook(const std::string& name);
 public:
     HomeScreen(ScreenManager* manager);

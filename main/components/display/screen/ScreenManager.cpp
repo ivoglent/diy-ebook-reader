@@ -38,6 +38,7 @@ void ScreenManager::setup()
     setting->init();
     _screens.push_back({ setting });
 
+    this->setCurrentScreen(HomeScreenName);
 }
 
 void ScreenManager::eventHandle(const ButtonEvent& event)

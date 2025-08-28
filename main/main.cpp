@@ -82,7 +82,7 @@ extern "C" void app_main(void) {
     ESP_LOGI(TAG, "Init event bus done");
 
     register_service<SDCard>(static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MOSI), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MISO), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CLK), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CS));
-
+    vTaskDelay(pdMS_TO_TICKS(1000));
     mount_spiffs();
     register_service<Display>();
     register_service<Button>(CONFIG_BUTTON_PIN_UP, CONFIG_BUTTON_PIN_DOWN, CONFIG_BUTTON_PIN_SELECT);
