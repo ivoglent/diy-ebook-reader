@@ -18,12 +18,12 @@ protected:
     lv_obj_t* _data = nullptr;
 public:
     explicit Screen(ScreenManager* manager);
-    virtual ~Screen() = default;
-    virtual std::string getId();
+    virtual ~Screen() {};
+    virtual std::string getId() = 0;
     void load();
-    virtual void init();
-    virtual void refresh();
-    virtual ScreenMenuEventHandle_t getMenuHandle();
+    virtual void init() = 0;
+    virtual void refresh() = 0;
+    virtual ScreenMenuEventHandle_t getMenuHandle() = 0;
     void bringToFront();
     void bringToFront(const std::string& id) const;
 };

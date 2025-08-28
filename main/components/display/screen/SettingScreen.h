@@ -4,10 +4,11 @@
 #pragma once
 #include "Screen.h"
 
+#define SETTING_SCREEN_NAME "SettingScreen"
 
 class SettingScreen: public Screen {
 public:
-    SettingScreen(ScreenManager* manager);
+    explicit SettingScreen(ScreenManager* manager);
     ~SettingScreen() override = default;
     void init() override;
     void refresh() override;

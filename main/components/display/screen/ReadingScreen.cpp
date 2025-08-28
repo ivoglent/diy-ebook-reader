@@ -46,6 +46,11 @@ ScreenMenuEventHandle_t ReadingScreen::getMenuHandle()
     return handleReadingMenu;
 }
 
+std::string ReadingScreen::getId()
+{
+    return READING_SCREEN_NAME;
+}
+
 void ReadingScreen::onButtonEvent(const ButtonEvent& event)
 {
     if (book == nullptr)
