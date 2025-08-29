@@ -13,6 +13,7 @@ idf_component_register(
             nvs_flash
             esp_lvgl_port
             lvgl__lvgl
+            lvgl_conf
             spiffs
             fatfs
             button

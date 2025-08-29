@@ -6,6 +6,8 @@
 #include <string>
 #include <core/lv_obj.h>
 #include <core/lv_disp.h>
+#include <core/lv_refr.h>
+
 #include "event.h"
 class Screen;
 class ScreenManager;

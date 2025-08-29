@@ -67,6 +67,68 @@ void setup() {
     }
 }
 
+void test(void* p)
+{
+    /*std::vector<std::string> titles;
+    titles.emplace_back("Testing title 1");
+    titles.emplace_back("Testing title 2");
+    titles.emplace_back("Testing title 3");
+    titles.emplace_back("Testing title 4");
+    titles.emplace_back("Testing title 5");
+    titles.emplace_back("Testing title 6");
+    titles.emplace_back("Testing title 7");
+    titles.emplace_back("Testing title 8");
+    lv_obj_t* book_items[8];
+    lv_obj_t* book_labels[8];
+    int count = titles.size();
+    auto _data = lv_obj_create(lv_scr_act());
+    lv_obj_set_style_bg_color(_data, lv_color_white(), 0);
+    int page_items = (count < ITEMS_PER_PAGE) ? count : ITEMS_PER_PAGE;
+    if (page_items > titles.size()) page_items = titles.size();
+
+    for (int i = 0; i < page_items; i++) {
+        int col = i % PAGE_COLS;
+        int row = i / PAGE_COLS;
+
+        int x = ITEM_MARGIN + col * (ITEM_W + ITEM_MARGIN);
+        int y = ITEM_MARGIN + row * (ITEM_H + ITEM_MARGIN);
+
+        // Box
+        book_items[i] = lv_obj_create(_data);
+        lv_obj_set_size(book_items[i], ITEM_W, ITEM_H);
+        lv_obj_set_pos(book_items[i], x, y);
+        lv_obj_set_style_border_width(book_items[i], 1, 0);
+        lv_obj_set_style_border_color(book_items[i], lv_color_black(), 0);
+        lv_obj_set_style_bg_color(book_items[i], lv_color_white(), 0);
+        lv_obj_set_style_radius(book_items[i], 0, 0);
+
+        // Title
+        book_labels[i] = lv_label_create(book_items[i]);
+        lv_label_set_text(book_labels[i], titles[i].c_str());
+        lv_obj_center(book_labels[i]);
+    }
+    //lv_scr_load(_data);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    lv_refr_now(nullptr);*/
+    //vTaskDelay(pdMS_TO_TICKS(1000));
+    ESP_LOGI("MAIN", "Starting test");
+    lv_obj_t *rect = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(rect, 200, 200);
+    lv_obj_center(rect);
+    lv_obj_set_style_radius(rect, 0, 0); // sharp corners
+    lv_obj_set_style_bg_color(rect, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(rect, LV_OPA_COVER, 0);
+
+    // Delay a bit and then force flush
+    //vTaskDelay(pdMS_TO_TICKS(1000));
+    //lv_refr_now(nullptr);
+
+    while (true)
+    {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
 
 extern "C" void app_main(void) {
     // NVS
@@ -81,13 +143,14 @@ extern "C" void app_main(void) {
     event_bus_init();
     ESP_LOGI(TAG, "Init event bus done");
 
-    register_service<SDCard>(static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MOSI), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MISO), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CLK), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CS));
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    //register_service<SDCard>(static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MOSI), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_MISO), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CLK), static_cast<gpio_num_t>(CONFIG_SDCARD_SPI_CS));
+    //vTaskDelay(pdMS_TO_TICKS(1000));
     mount_spiffs();
     register_service<Display>();
-    register_service<Button>(CONFIG_BUTTON_PIN_UP, CONFIG_BUTTON_PIN_DOWN, CONFIG_BUTTON_PIN_SELECT);
+    //register_service<Button>(CONFIG_BUTTON_PIN_UP, CONFIG_BUTTON_PIN_DOWN, CONFIG_BUTTON_PIN_SELECT);
 
-    register_service<ScreenManager>();
+    //register_service<ScreenManager>();
     setup();
     ESP_LOGI(TAG, "Setup complete");
+    xTaskCreate(test, "test-task", 4096, NULL, 5, NULL);
 }
