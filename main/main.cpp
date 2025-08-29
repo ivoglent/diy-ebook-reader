@@ -73,7 +73,7 @@ static void lvgl_demo_task(void *pv) {
         ss << i;
         ss << ".bmp";
         display->display(ss.str());
-        vTaskDelay(pdMS_TO_TICKS(3000));
+        vTaskDelay(pdMS_TO_TICKS(5000));
         i++;
         if (i > 9) i =1;
     }
