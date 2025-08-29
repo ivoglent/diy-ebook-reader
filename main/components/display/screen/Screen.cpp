@@ -9,7 +9,8 @@
 
 Screen::Screen(ScreenManager* manager): _manager(manager)
 {
-
+    _data = lv_obj_create(nullptr);
+    lv_obj_set_size(_data, SCREEN_WIDTH, SCREEN_HEIGHT);
 }
 
 void Screen::load()

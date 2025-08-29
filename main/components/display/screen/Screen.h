@@ -7,7 +7,8 @@
 #include <core/lv_obj.h>
 #include <core/lv_disp.h>
 #include <core/lv_refr.h>
-
+#define SCREEN_WIDTH 480
+#define SCREEN_HEIGHT 800
 #include "event.h"
 class Screen;
 class ScreenManager;

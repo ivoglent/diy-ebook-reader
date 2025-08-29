@@ -10,12 +10,7 @@
 
 #define HomeScreenName "HOME"
 #define HOME_TAG "HomeScreen"
-#define ITEM_W 100
-#define ITEM_H 100
-#define ITEM_MARGIN 10
-#define PAGE_COLS 4
-#define PAGE_ROWS 7
-#define ITEMS_PER_PAGE (PAGE_COLS * PAGE_ROWS)
+#define ITEMS_PER_PAGE 9
 #define MAX_BOOK_ITEMS 1000
 
 class HomeScreen final : public Screen {

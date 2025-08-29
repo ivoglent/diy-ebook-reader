@@ -19,6 +19,7 @@ idf_component_register(
             button
             esp_event
             json
+            console
 )
 
 #spiffs_create_partition_image(spiffs ../data FLASH_IN_PROJECT)

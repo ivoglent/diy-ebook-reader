@@ -136,9 +136,10 @@ void display_partially(const lv_area_t *area, lv_color_t *lv_buf)
             }
         }
     }
-
+    //ESP_LOG_BUFFER_HEXDUMP("EPD_BUF", epd_buf, row_bytes, ESP_LOG_INFO);
     // Push to your driver
     EPD_Dis_Part_RAM(area->x1, area->y1, epd_buf, width, height);
+    EPD_Part_Update();
     free(epd_buf);
 }
 
@@ -307,7 +308,8 @@ static void spi_display_init(spi_host_device_t host_id) {
     // Initialize panel HW & mode
     EPD_HW_Init(host_id);
     delay_ms(100);
-    EPD_W21_Init_Modes(Init_Mode_X_3);
+    //EPD_W21_Init_Modes(Init_Mode_X_3);
+    EPD_W21_Init_Fast();
 }
 
 // =============== Handle task ===============

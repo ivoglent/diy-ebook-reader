@@ -10,6 +10,7 @@
 #include "service.h"
 #include "components/system/Registry.h"
 #include "soc/gpio_num.h"
+#include "console.h"
 
 typedef struct {
     void* button;

@@ -4,13 +4,40 @@
 
 #include "Button.h"
 
+#include <esp_console.h>
+
 #include "esp_log.h"
 #include "../system/EventBus.h"
+
 
 static const char* BUTTON_TAG = "Button";
 button_handle_t btnUp = nullptr;
 button_handle_t btnDown = nullptr;
 button_handle_t btnSelect = nullptr;
+
+static int fake_button_cmd(int argc, char **argv)
+{
+    if (argc < 2)
+    {
+        ESP_LOGE(BUTTON_TAG, "Not enough arguments");
+    }
+    std::string buttonName = argv[1];
+    ESP_LOGI(BUTTON_TAG, "Fake button name: %s", buttonName.c_str());
+    const auto self = getRegistryInstance().getService<Button>();
+    if (buttonName == "up") {
+        self->handle(PRESSED, self->getUpPin());
+    } else if (buttonName == "down") {
+        self->handle(PRESSED, self->getDownPin());
+    } else if (buttonName == "select") {
+        self->handle(PRESSED, self->getSelectPin());
+    } else {
+        ESP_LOGE(BUTTON_TAG, "Unknown button name: %s", buttonName.c_str());
+    }
+
+    return 0;
+}
+
+
 static void button_up_single_click_cb(void *arg,void *usr_data)
 {
     const auto button = static_cast<Button*>(usr_data);
@@ -66,6 +93,15 @@ void Button::setup() {
         ESP_LOGE(BUTTON_TAG, "Button SELECT create failed");
     }
     iot_button_register_cb(btnSelect, BUTTON_SINGLE_CLICK, nullptr, button_select_single_click_cb, this);
+
+    constexpr esp_console_cmd_t cmd_fake_button = {
+        .command = "btn",
+        .help = "Fake button press",
+        .hint = nullptr,
+        .func = &fake_button_cmd,
+    };
+    //register_console_command(cmd_fake_button);
+    esp_console_cmd_register(&cmd_fake_button);
 }
 
 void Button::handle(const ButtonAction &action, const gpio_num_t &gpio) const {

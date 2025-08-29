@@ -9,5 +9,5 @@ typedef enum {
     SERVICE_DISPLAY,
     SERVICE_SD_CARD,
     SERVICE_MENU,
-    SERVICE_SCREEN,
+    SERVICE_SCREEN
 };
